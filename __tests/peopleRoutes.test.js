@@ -19,6 +19,7 @@ describe('/api/people routes', () => {
   const person1 = { name: 'mark', isAttending: true };
   const person2 = { name: 'russell', isAttending: false };
   const person3 = { name: 'ryan', isAttending: true };
+  const person4 = { name: 'johnson', isAttending: true }
 
   const dish1 = { name: 'turkey', description: 'delicious briney turkey' };
   const dish2 = { name: 'pie', description: 'delicious pumpkiney pie' };
@@ -111,26 +112,137 @@ describe('/api/people routes', () => {
           Dish.create({ ...dish2, personId: ryan.id }),
         ]);
         // your code below
+
+        // grab the response
+        const includeDish = await request(app).get(
+          '/api/people/?include_dishes=true'
+        );
+
+        // test our assertions
+        expect(includeDish.statusCode).toBe(200);
+        expect(includeDish.headers['content-type']).toEqual(
+          expect.stringContaining('json')
+        );
+
+        const hasDish = includeDish.body;
+        expect(hasDish.length).toBe(2);
+        expect(hasDish).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ ...dish1, personId: mark.id }),
+            expect.objectContaining({ ...dish2, personId: ryan.id }),
+          ])
+        );
+        //stop
       } catch (err) {
         fail(err);
       }
     });
   });
-  xdescribe('POST to /api/people', () => {
+
+  describe('POST to /api/people', () => {
     it('should create a new person and return that persons information if all the required information is given', async () => {
       // HINT: You will be sending data then checking response. No pre-seeding required
       // Make sure you test both the API response and whats inside the database anytime you create, update, or delete from the database
+      try {
+        await Person.create(person4)
+
+        await request(app)
+          .post('/api/people')
+          .send({name: 'johnson', isAttending: true})
+          .set('Accept', 'application/json')
+          .expect('Content-Type', /json/)
+          .expect(201)
+      }
+      catch (err) {
+        fail(err)
+      }
     });
-    it('should return status code 400 if missing required information', async () => {});
+    it('should return status code 400 if missing required information', async () => {
+      try {
+        await Person.create({name: undefined, isAttending: true})
+
+        await request(app)
+          .post('/api/people')
+          .send({name: undefined, isAttending: true })
+          .set('Accept', 'application/json')
+          .expect('Content-Type', 'text/html; charset=utf-8')
+          .expect(400)
+      }
+      catch (err) {
+        fail(err)
+      }
+    });
   });
 
-  xdescribe('PUT to /api/people/:id', () => {
-    it('should update a persons information', async () => {});
-    it('should return a 400 if given an invalid id', async () => {});
+  describe('PUT to /api/people/:id', () => {
+    it('should update a persons information', async () => {
+      try {
+        const [mark, russell, ryan] = await Promise.all([
+          Person.create(person1),
+          Person.create(person2),
+          Person.create(person3),
+        ]);
+
+        await Person.update({isAttending: true}, {where: {id: russell.id}})
+
+        await request(app)
+          .put(`/api/people/${russell.id}`)
+          .send({name: 'russel', isAttending: true })
+          .set('Accept', 'application/json')
+          .expect('Content-Type', /json/)
+          .expect(200)
+      }
+      catch (err) {
+        fail(err)
+      }
+    });
+    it('should return a 400 if given an invalid id', async () => {
+      try {
+
+        await Person.update({isAttending: true}, {where: {id: 99}})
+
+        await request(app)
+          .put(`/api/people/:id`)
+          .send({isAttending: true}, {where: {id: 99}})
+          .set('Accept', 'application/json')
+          .expect('Content-Type', 'text/html; charset=utf-8')
+          .expect(400)
+      }
+      catch (err) {
+        fail(err)
+      }
+    });
   });
 
-  xdescribe('DELETE to /api/people/:id', () => {
-    it('should remove a person from the database', async () => {});
-    it('should return a 400 if given an invalid id', async () => {});
+  describe('DELETE to /api/people/:id', () => {
+    it('should remove a person from the database', async () => {
+      try {
+        const [mark, russell, ryan] = await Promise.all([
+          Person.create(person1),
+          Person.create(person2),
+          Person.create(person3),
+        ]);
+
+        await Person.destroy({where: {id: russell.id}})
+
+        await request(app)
+          .delete(`/api/people/${russell.id}`)
+      }
+      catch (err) {
+        fail(err)
+      }
+    });
+    it('should return a 400 if given an invalid id', async () => {
+      try {
+        await Person.destroy({where: {id: '1231'}})
+
+        await request(app)
+          .del(`/api/people/${1231}`)
+          .expect(400);
+      }
+      catch (err) {
+        fail(err)
+      }
+    });
   });
 });
